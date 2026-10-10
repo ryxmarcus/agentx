@@ -9,6 +9,8 @@ Can be run locally from terminal:
 """
 
 import argparse
+import json
+import shutil
 import os
 try:
     import readline
@@ -28,18 +30,21 @@ from core.llm_client import UniversalLLMClient
 from core.node_manager import node_manager
 from core.project_manager import project_manager
 from core.tools import tool_executor
+from core.operation_lock import is_locked
 
+VERSION = "1.4.0"
 BANNER = """\033[1;36m
-ΓòöΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòù
-Γòæ                     AllCargo iTOPAZ Autonomous Agent CLI                      Γòæ
-Γòæ                     Local DevOps & Multi-Project Assistant                    Γòæ
-ΓòÜΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓò¥\033[0m
++--------------------------------------------------------------+
+|            AllCargo iTOPAZ Autonomous Agent CLI               |
+|            Local DevOps & Multi-Project Assistant             |
++--------------------------------------------------------------+\033[0m
 """
 
 HELP_TEXT = """\033[1mCommands:\033[0m
-  \033[33m/projects\033[0m              List all 20 repositories in workspace
+  \033[33m/projects\033[0m              List discovered repositories in workspace
   \033[33m/project <id>\033[0m          Switch active project focus (e.g. /p itariff-k8s)
   \033[33m/kb <query>\033[0m            Direct knowledge base search (FTS5 full text)
+  \033[33m/doctor\033[0m                Show local health and lock status
   \033[33m/status\033[0m                Git status & recent commits for current project
   \033[33m/env <name>\033[0m            Show AWS/EKS/Bastion details (dev, sit, uat, prod, sg)
   \033[33m/keys\033[0m                  Check Bitbucket token & SSH key counts
@@ -53,8 +58,39 @@ HELP_TEXT = """\033[1mCommands:\033[0m
 
 \033[1mTasks:\033[0m
   Enter any natural language task or question to let the agent autonomously
-  investigate, search knowledge, read/patch files, and run commands.
+  investigate, search knowledge, and read files. Writing and command
+  execution follow the workspace operation lock.
 """
+
+
+def node_tag(node):
+    if not node.get("enabled", True):
+        return "[disabled / standby]"
+    if node.get("optional"):
+        return "[optional]"
+    return "[primary]" if node["role"] == "worker" else ""
+
+
+def doctor_report():
+    from core.knowledge_rag import REPO_ROOT as workspace
+    current = node_manager.current_node()
+    sources = ["knowledge-base/KNOWLEDGE-BASE.md", "infrastructure/activity-log.md", "infrastructure/environment-summaries.md"]
+    return {
+        "version": VERSION,
+        "workspace": str(workspace),
+        "python": sys.version.split()[0],
+        "current_node": current.id if current else "unknown",
+        "operation_locked": is_locked(),
+        "ssh_available": shutil.which("ssh") is not None,
+        "knowledge_sources": {path: (workspace / path).is_file() for path in sources},
+        "active_workers": [node.id for node in node_manager.workers()],
+        "nodes": [{"id": node["id"], "enabled": node.get("enabled", True), "optional": node.get("optional", False), "agent_deployed": node.get("agent_deployed"), "key_exists": Path(node["ssh_key"]).is_file() if "ssh_key" in node else None} for node in node_manager.list_nodes()],
+        "scope": "Local inspection only; no network or provider calls",
+    }
+
+
+def print_doctor():
+    print(json.dumps(doctor_report(), indent=2))
 
 
 def setup_history():
@@ -62,7 +98,10 @@ def setup_history():
     if readline is None:
         return
     hist_file = REPO_ROOT / ".tmp" / ".itopaz_agent_history"
-    hist_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        hist_file.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
     try:
         if hist_file.is_file():
             readline.read_history_file(str(hist_file))
@@ -88,6 +127,7 @@ def print_projects_table():
 def interactive_repl(loop: AgentLoop):
     """Run interactive REPL loop."""
     print(BANNER)
+    print(f"Version: {VERSION} | Operation lock: {'LOCKED' if is_locked() else 'UNLOCKED'}")
     active = project_manager.get_active_project()
     print(f"Provider: \033[1;32m{loop.llm.provider}\033[0m | Model: \033[1;32m{loop.llm.model}\033[0m")
     print("Type \033[1;33m/help\033[0m for commands or enter any DevOps/coding task directly.\n")
@@ -110,13 +150,16 @@ def interactive_repl(loop: AgentLoop):
             elif user_input in ["/help", "help"]:
                 print(HELP_TEXT)
 
+            elif user_input == "/doctor":
+                print_doctor()
+
             elif user_input in ["/clear", "clear"]:
                 os.system("cls" if os.name == "nt" else "clear")
 
             elif user_input in ["/projects", "/list"]:
                 print_projects_table()
 
-            elif user_input.startswith(("/project", "/p")):
+            elif user_input.split(maxsplit=1)[0] in ("/project", "/p"):
                 parts = user_input.split(maxsplit=1)
                 if len(parts) > 1:
                     target = parts[1].strip()
@@ -191,12 +234,7 @@ def interactive_repl(loop: AgentLoop):
                 for n in node_manager.list_nodes():
                     marker = " \033[1;32m*\033[0m" if cur and cur.id == n["id"] else "  "
                     tgt = n.get("host", "localhost")
-                    if n.get("optional"):
-                        tag = " \033[1;33m[optional — future activation]\033[0m"
-                    elif n["role"] == "worker":
-                        tag = " \033[36m[primary]\033[0m"
-                    else:
-                        tag = ""
+                    tag = " " + node_tag(n)
                     print(f"{marker} \033[1m{n['id']:10}\033[0m [{n['role']:6}] {n['user']}@{tgt}  ->  {n['workspace_root']}{tag}")
                 print()
 
@@ -261,19 +299,49 @@ def main():
     parser.add_argument("--keys", action="store_true", help="Show credentials, Bitbucket token status, and SSH keys")
     parser.add_argument("--nodes", action="store_true", help="List registered master/worker nodes and exit")
 
+    parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    parser.add_argument("--doctor", action="store_true", help="Report local health and operation lock as JSON; no network calls")
+
+    parser.add_argument("--serve", action="store_true", help="Serve HTTP health and authenticated knowledge search")
+    parser.add_argument("--port", type=int, default=8082, help="HTTP port (default 8082)")
+    parser.add_argument("--control-status", action="store_true", help="Check DEV controller, chatbot and dashboard")
+    parser.add_argument("--chat", help="Ask the connected knowledge chatbot")
+    parser.add_argument("--approve", help="Review and explicitly approve a resource proposal from the Windows master")
+    dashboard = parser.add_mutually_exclusive_group()
+    dashboard.add_argument("--dashboard-accounts", action="store_true", help="List configured AWS accounts directly from the Dashboard API")
+    dashboard.add_argument("--dashboard-action", metavar="JSON_FILE", help="Review and approve one exact AWS action directly through the Dashboard API")
+
     args = parser.parse_args()
+    if args.dashboard_accounts or args.dashboard_action:
+        from core.dashboard_client import accounts, approve_file
+        try:
+            result = approve_file(args.dashboard_action) if args.dashboard_action else accounts()
+            print(json.dumps(result, indent=2))
+        except Exception as error:
+            parser.exit(1, f"Dashboard request failed: {error}\n")
+        return
+    if args.control_status or args.chat or args.approve:
+        from core.control_client import request, approve
+        try:
+            result = approve(args.approve) if args.approve else request("/control/chat", {"question": args.chat}) if args.chat else request("/control/status")
+            print(json.dumps(result, indent=2))
+        except Exception as error:
+            parser.exit(1, f"Control request failed: {error}\n")
+        return
+    if args.serve:
+        from core.http_server import serve
+        serve(port=args.port)
+        return
+    if args.doctor:
+        print_doctor()
+        return
 
     if args.nodes:
         cur = node_manager.current_node()
         print(f"\n=== Registered Nodes (running on: {cur.id if cur else 'unknown'}) ===")
         for n in node_manager.list_nodes():
             tgt = n.get("host", "localhost")
-            if n.get("optional"):
-                tag = "  [optional — future activation]"
-            elif n["role"] == "worker":
-                tag = "  [primary]"
-            else:
-                tag = ""
+            tag = " " + node_tag(n)
             print(f"  {n['id']:10} [{n['role']:6}] {n['user']}@{tgt} -> {n['workspace_root']}{tag}")
         print()
         return

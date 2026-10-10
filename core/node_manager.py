@@ -93,6 +93,8 @@ class Node:
         For the local master this returns a plain shell invocation (no ssh).
         Never performs any configuration — only runs what the caller passes.
         """
+        if self.cfg.get("enabled", True) is False:
+            raise PermissionError(f"Node {self.id} is disabled; activate it explicitly in nodes.json.")
         check_command(remote_cmd)
         if self.transport == "local":
             return ["powershell", "-NoProfile", "-Command", remote_cmd] if self.os == "windows" else ["sh", "-c", remote_cmd]
@@ -134,6 +136,8 @@ class Node:
             "workspace_root": self.workspace_root,
             "agent_entry": self.agent_entry,
             "python": self.python,
+            "enabled": self.cfg.get("enabled", True),
+            "agent_deployed": self.cfg.get("agent_deployed"),
             "optional": self.optional,
             "activation": self.activation,
         }
@@ -193,7 +197,7 @@ class NodeManager:
 
     def overflow_workers(self) -> List[Node]:
         """Optional nodes recruited only when load increases."""
-        return [n for n in self._nodes.values() if n.role == "worker" and n.optional]
+        return [n for n in self._nodes.values() if n.role == "worker" and n.optional and n.cfg.get("enabled", True)]
 
     def select_workers(self, high_load: bool = False) -> List[Node]:
         """Pick the worker set for a dispatch.
