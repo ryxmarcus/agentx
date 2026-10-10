@@ -1,0 +1,30 @@
+# Track reviewed agent source only. Operational records and secrets stay local.
+/*
+!/.gitignore
+!/itopaz_agent.py
+!/config.json.example
+!/core/
+!/tests/
+!/bin/
+!/agent/
+/core/*
+!/core/*.py
+/tests/*
+!/tests/test_*.py
+/bin/*
+!/bin/itopaz-agent
+/agent/*
+!/agent/itopaz_agent.py
+!/agent/config.json.example
+!/agent/bin/
+/agent/bin/*
+!/agent/bin/itopaz-agent
+# Never track local credentials or generated files.
+**/__pycache__/
+*.pyc
+*.pem
+*.key
+*.ppk
+.env*
+config.json
+**/secrets/

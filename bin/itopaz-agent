@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# AllCargo iTOPAZ Autonomous Agent Launcher
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AGENT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+export PYTHONPATH="${AGENT_ROOT}:${PYTHONPATH:-}"
+
+exec python3 "${AGENT_ROOT}/itopaz_agent.py" "$@"
+
