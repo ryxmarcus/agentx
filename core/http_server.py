@@ -2,6 +2,7 @@
 import hmac
 import json
 import os
+import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse, quote
 from urllib.request import Request, urlopen
@@ -9,6 +10,29 @@ from urllib.error import HTTPError, URLError
 from core.knowledge_rag import KnowledgeRetriever
 
 class AgentHandler(BaseHTTPRequestHandler):
+    def route_path(self):
+        path = urlparse(self.path).path
+        aliases = {"status": "/control/status", "chat": "/control/chat", "search": "/control/search", "metrics": "/control/dashboard/metrics"}
+        if path.startswith("/agentx/api/"):
+            return aliases.get(path[len("/agentx/api/"):], "/not-found")
+        return path
+
+    def show_ui(self):
+        from core.agent_ui import PAGE
+        nonce = secrets.token_urlsafe(24)
+        data = PAGE.replace("__NONCE__", nonce).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Security-Policy", f"default-src 'none'; script-src 'nonce-{nonce}'; style-src 'nonce-{nonce}'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
+        self.end_headers()
+        self.wfile.write(data)
+
     def respond(self, status, body):
         data = json.dumps(body).encode()
         self.send_response(status)
@@ -18,7 +42,7 @@ class AgentHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def authenticated(self):
-        token = os.environ.get("TOPAZ_MASTER_TOKEN" if urlparse(self.path).path.startswith("/control/") else "AGENT_API_TOKEN", "")
+        token = os.environ.get("TOPAZ_MASTER_TOKEN" if self.route_path().startswith("/control/") else "AGENT_API_TOKEN", "")
         return bool(token) and hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token)
 
     def downstream(self, base, path, payload=None, approved=False):
@@ -51,7 +75,7 @@ class AgentHandler(BaseHTTPRequestHandler):
         except (ValueError, TypeError):
             return self.respond(400, {"error": "Invalid JSON request"})
         bot = os.environ.get("KNOWLEDGE_BOT_URL", "http://knowledge-bot-backend.default.svc.cluster.local:8081")
-        route = urlparse(self.path).path
+        route = self.route_path()
         if route == "/control/chat":
             question = data.get("question")
             if not isinstance(question, str) or not 1 <= len(question) <= 8000:
@@ -66,13 +90,16 @@ class AgentHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         route = urlparse(self.path)
-        if route.path in ("/healthz", "/health", "/agentx", "/agentx/"):
+        if route.path in ("/agentx", "/agentx/"):
+            return self.show_ui()
+        if route.path in ("/healthz", "/health"):
             return self.respond(200, {"status": "ok", "service": "itopaz-agent", "runtime": "python"})
+        path = self.route_path()
         if not self.authenticated():
             return self.respond(401, {"error": "Authentication required"})
         bot = os.environ.get("KNOWLEDGE_BOT_URL", "http://knowledge-bot-backend.default.svc.cluster.local:8081")
         dashboard = os.environ.get("DASHBOARD_API_URL", "http://aws-dashboard-api-svc.default.svc.cluster.local:8080")
-        if route.path == "/control/status":
+        if path == "/control/status":
             health = {}
             for name, base in (("knowledge", bot), ("dashboard", dashboard)):
                 try:
@@ -80,16 +107,16 @@ class AgentHandler(BaseHTTPRequestHandler):
                         health[name] = {"reachable": result.status == 200}
                 except (URLError, OSError): health[name] = {"reachable": False}
             return self.respond(200, {"master": "local-windows", "scm": "bitbucket", "backend": "dev-eks", "approval": "per-change", "services": health})
-        if route.path.startswith("/control/pending/"):
-            identifier = route.path[len("/control/pending/"):]
+        if path.startswith("/control/pending/"):
+            identifier = path[len("/control/pending/"):]
             if not identifier or len(identifier) > 100 or "/" in identifier:
                 return self.respond(400, {"error": "Invalid proposal ID"})
             return self.downstream(bot, "/api/action/pending/" + quote(identifier, safe=""), approved=True)
-        if route.path == "/control/dashboard/metrics":
+        if path == "/control/dashboard/metrics":
             return self.downstream(dashboard, "/api/metrics")
-        if route.path == "/control/audit":
+        if path == "/control/audit":
             return self.downstream(bot, "/api/action/audit")
-        if route.path == "/api/search":
+        if path in ("/api/search", "/control/search"):
             query = parse_qs(route.query).get("q", [""])[0].strip()
             if not query or len(query) > 500:
                 return self.respond(400, {"error": "q must contain 1-500 characters"})
