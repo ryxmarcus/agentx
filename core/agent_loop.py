@@ -114,7 +114,7 @@ Operational Guidelines:
                 tool_result = tool_executor.execute_tool(tc.name, tc.arguments)
 
                 # Format tool result for next turn
-                result_str = json.dumps(tool_result, ensure_ascii=False, indent=2)
+                result_str = json.dumps(tool_result, ensure_ascii=False, separators=(',', ':'))
                 messages.append({
                     "role": "user",
                     "content": f"[Tool Result: {tc.name}]\n{result_str}",

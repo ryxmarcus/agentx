@@ -65,14 +65,15 @@ class KnowledgeRetriever:
     def __init__(self, root: Optional[Path] = None):
         self.root = root or REPO_ROOT
         self._db: Optional[sqlite3.Connection] = None
-        self._last_indexed_time = 0.0
+        self._source_signature = None
 
     def _ensure_index(self) -> sqlite3.Connection:
         # Check if source files modified
         files = source_files()
-        mtime = max((f.stat().st_mtime for f in files if f.exists()), default=0.0)
+        signature = tuple((str(f), f.stat().st_mtime_ns, f.stat().st_size)
+                          for f in files if f.exists())
 
-        if self._db is not None and mtime <= self._last_indexed_time:
+        if self._db is not None and signature == self._source_signature:
             return self._db
 
         db = sqlite3.connect(":memory:")
@@ -90,8 +91,10 @@ class KnowledgeRetriever:
                     "INSERT INTO docs(path, heading, content, line) VALUES (?, ?, ?, ?)",
                     (rel, heading, body, line),
                 )
+        if self._db is not None:
+            self._db.close()
         self._db = db
-        self._last_indexed_time = mtime
+        self._source_signature = signature
         return self._db
 
     def search(
@@ -173,21 +176,30 @@ class KnowledgeRetriever:
 
     def get_context_for_prompt(self, query: str, max_results: int = 4, max_chars: int = 3500) -> str:
         """Format top relevant knowledge chunks into prompt context for LLM reasoning."""
-        results = self.search(query, limit=max_results, context_chars=1200)
+        if max_chars <= 0 or max_results <= 0:
+            return ""
+        results = self.search(query, limit=max_results, context_chars=0)
         if not results:
-            return "No matching knowledge base entries found."
+            return "No matching knowledge base entries found."[:max_chars]
 
         chunks = []
         total_len = 0
+        seen = set()
         for r in results:
+            identity = (r['path'], r['line'])
+            if identity in seen:
+                continue
+            seen.add(identity)
             chunk = (
                 f"### [{r['path']}#L{r['line']}-{r['end_line']}] {r['heading']}\n"
                 f"{r.get('content', r.get('excerpt', ''))}\n"
             )
-            if total_len + len(chunk) > max_chars and chunks:
+            remaining = max_chars - total_len - (1 if chunks else 0)
+            if remaining <= 0:
                 break
+            chunk = chunk[:remaining]
+            total_len += len(chunk) + (1 if chunks else 0)
             chunks.append(chunk)
-            total_len += len(chunk)
 
         return "\n".join(chunks)
 

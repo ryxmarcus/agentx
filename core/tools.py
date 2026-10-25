@@ -72,7 +72,7 @@ class ToolExecutor:
             },
             {
                 "name": "read_file",
-                "description": "Read content from a file in the workspace.",
+                "description": "Read a workspace file page (default 120 lines, maximum 300). Use next_start_line to continue.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -230,16 +230,25 @@ class ToolExecutor:
                 if not full_path.is_file():
                     return {"status": "error", "message": f"File '{rel_path}' does not exist"}
 
-                lines = full_path.read_text(encoding="utf-8", errors="replace").splitlines()
                 start = max(1, int(args.get("start_line", 1)))
-                end = min(len(lines), int(args.get("end_line", len(lines))))
-                selected_lines = lines[start - 1 : end]
-                numbered = [f"{i}: {line}" for i, line in enumerate(selected_lines, start=start)]
+                end = min(start + 299, int(args.get("end_line", start + 119)))
+                if end < start:
+                    return {"status": "error", "message": "end_line must be >= start_line"}
+                numbered = []
+                total_lines = 0
+                with full_path.open(encoding="utf-8", errors="replace") as stream:
+                    for number, line in enumerate(stream, 1):
+                        total_lines = number
+                        if start <= number <= end:
+                            numbered.append(f"{number}: {line.rstrip(chr(10)).rstrip(chr(13))}")
+                end = min(end, total_lines)
 
                 return {
                     "status": "success",
                     "path": str(full_path.relative_to(self.root) if full_path.is_relative_to(self.root) else full_path),
-                    "total_lines": len(lines),
+                    "total_lines": total_lines,
+                    "truncated": end < total_lines,
+                    "next_start_line": end + 1 if end < total_lines else None,
                     "start_line": start,
                     "end_line": end,
                     "content": "\n".join(numbered),
