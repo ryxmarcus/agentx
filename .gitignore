@@ -1,6 +1,7 @@
 # Track reviewed agent source only. Operational records and secrets stay local.
 /*
 !/.gitignore
+!/agentx.py
 !/itopaz_agent.py
 !/config.json.example
 !/core/
