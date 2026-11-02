@@ -7,5 +7,5 @@ AGENT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 export PYTHONPATH="${AGENT_ROOT}:${PYTHONPATH:-}"
 
-exec python3 "${AGENT_ROOT}/agent/itopaz_agent.py" "$@"
+exec python3 "${AGENT_ROOT}/agent/agentx.py" "$@"
 
