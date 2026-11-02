@@ -102,7 +102,17 @@ Operational Guidelines:
 
             # Execute tool calls
             assistant_content = response.content or "Executing tool actions to resolve task..."
-            messages.append({"role": "assistant", "content": assistant_content})
+            if response.provider == "bedrock" and response.tool_calls:
+                messages.append({
+                    "role": "assistant",
+                    "content": [{"text": response.content}] if response.content else [],
+                    "tool_calls": [
+                        {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
+                        for tc in response.tool_calls
+                    ],
+                })
+            else:
+                messages.append({"role": "assistant", "content": assistant_content})
 
             if self.verbose:
                 print(f"\n[\033[1;33mAction\033[0m] {assistant_content}")
@@ -115,10 +125,21 @@ Operational Guidelines:
 
                 # Format tool result for next turn
                 result_str = json.dumps(tool_result, ensure_ascii=False, separators=(',', ':'))
-                messages.append({
-                    "role": "user",
-                    "content": f"[Tool Result: {tc.name}]\n{result_str}",
-                })
+                if response.provider == "bedrock":
+                    messages.append({
+                        "role": "user",
+                        "content": [{
+                            "toolResult": {
+                                "toolUseId": tc.id,
+                                "content": [{"json": tool_result}],
+                            }
+                        }],
+                    })
+                else:
+                    messages.append({
+                        "role": "user",
+                        "content": f"[Tool Result: {tc.name}]\n{result_str}",
+                    })
 
             # In offline rule engine mode, stop after tool execution + synthesize
             if self.llm.provider == "offline":

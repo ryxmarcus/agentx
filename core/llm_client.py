@@ -381,10 +381,12 @@ class UniversalLLMClient:
             bedrock_msgs = []
             for m in messages:
                 if m["role"] in ["user", "assistant"]:
-                    bedrock_msgs.append({
-                        "role": m["role"],
-                        "content": [{"text": str(m["content"])}],
-                    })
+                    content = m.get("content", "")
+                    if isinstance(content, list):
+                        bedrock_content = content
+                    else:
+                        bedrock_content = [{"text": str(content)}]
+                    bedrock_msgs.append({"role": m["role"], "content": bedrock_content})
 
             kwargs: Dict[str, Any] = {
                 "modelId": self.model or self.config.get("bedrock_model_id", "eu.amazon.nova-lite-v1:0"),
@@ -393,11 +395,38 @@ class UniversalLLMClient:
             if system_prompt:
                 kwargs["system"] = [{"text": system_prompt}]
 
+            # Bedrock Converse accepts tools through toolConfig. Keep a hard
+            # ceiling below Nova's 128-tool limit in case a larger registry is
+            # introduced later.
+            if tools:
+                bedrock_tools = []
+                for tool in tools[:128]:
+                    bedrock_tools.append({
+                        "toolSpec": {
+                            "name": tool["name"],
+                            "description": tool.get("description", ""),
+                            "inputSchema": {"json": tool.get("parameters", {"type": "object", "properties": {}})},
+                        }
+                    })
+                kwargs["toolConfig"] = {"tools": bedrock_tools}
+
             res = client.converse(**kwargs)
-            out_text = res.get("output", {}).get("message", {}).get("content", [{}])[0].get("text", "")
+            response_msg = res.get("output", {}).get("message", {})
+            out_text = "\n".join(
+                item.get("text", "") for item in response_msg.get("content", []) if item.get("text")
+            )
+            tool_calls = []
+            for item in response_msg.get("content", []):
+                tool_use = item.get("toolUse")
+                if tool_use:
+                    tool_calls.append(ToolCall(
+                        id=tool_use.get("toolUseId", ""),
+                        name=tool_use.get("name", ""),
+                        arguments=tool_use.get("input", {}),
+                    ))
             return LLMResponse(
                 content=out_text,
-                tool_calls=[],
+                tool_calls=tool_calls,
                 raw_response=res,
                 provider="bedrock",
                 model=self.model,
