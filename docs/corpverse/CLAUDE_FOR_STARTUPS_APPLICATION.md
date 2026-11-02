@@ -111,3 +111,4 @@ flowchart TD
   2. Apply at https://aws.amazon.com/startups/credits under the Portfolio Tier.
   3. Attach the DTU-IIF Letter of Intent (`DTU-IIF/VcorpTech/83/2024-25/733`).
   4. Enable Amazon Bedrock in the AWS Console to run Claude models.
+
