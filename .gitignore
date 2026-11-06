@@ -10,6 +10,11 @@
 !/agent/
 !/docs/
 !/docs/**
+!/knowledge-base/
+!/knowledge-base/**
+!/browser_daemon.py
+!/browser_daemon_2.py
+!/AGENTS.md
 /core/*
 !/core/*.py
 /tests/*
