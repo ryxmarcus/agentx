@@ -1,10 +1,49 @@
 # Current handoff
 
-Updated: 2026-10-30 (Asia/Kolkata).
+Updated: 2026-11-09 (Asia/Kolkata).
 
 ## Objective
 
-Assist Rahul Kumar with DevOps automation across Bitbucket & Jenkins (`itopaz-k8-repo`), infrastructure connectivity validation (AWS Glue DEV), and career profile optimization.
+Autonomous Faceless YouTube Shorts Pipeline for channel [@ryxmarcus](https://www.youtube.com/@ryxmarcus) running 100% in the Google Cloud ecosystem (Google Apps Script + Google Colab + Google Drive, zero local host machine execution or cron) with 2 daily videos scheduled at peak engagement windows:
+- Slot 1 (Lunch): 1:00 PM IST (07:30 UTC)
+- Slot 2 (Evening): 7:30 PM IST (14:00 UTC)
+
+## Latest completed work — 2026-11-09
+
+- **100% Cloud-Native Autonomous Scheduler Configured (Google Apps Script):**
+  - **Project URL:** [`https://script.google.com/home/projects/1vrfZ_m-gC3TTxcqE52xYP3JZ3hLKlCE3TMScNVGu7ACMx7MhKqrV3hBX`](https://script.google.com/home/projects/1vrfZ_m-gC3TTxcqE52xYP3JZ3hLKlCE3TMScNVGu7ACMx7MhKqrV3hBX)
+  - **YouTube Data API v3 Service:** Added to Apps Script project and OAuth permissions authorized for `rk58743k@gmail.com`.
+  - **Cloud Triggers Active (Verified in Triggers Console):**
+    - `publishSlot1Lunch`: Time-based day timer at **1:00 PM IST** (13:00).
+    - `publishSlot2Evening`: Time-based day timer at **7:00 PM - 8:00 PM IST** (19:00).
+  - **Autonomous Cloud Upload Engine:**
+    - Checks Google Drive queue folder: `YouTube_Shorts_Queue`.
+    - Automatically attaches title from filename, optimized Science & Technology category (`28`), tags, descriptions, and Public visibility.
+    - Uploads directly to YouTube channel [@ryxmarcus](https://www.youtube.com/@ryxmarcus) via native `YouTube.Videos.insert`.
+    - Moves published videos into `YouTube_Shorts_Uploaded` folder in Google Drive.
+  - **Zero Local Workstation Overhead:** All local cron/Windows scheduler tasks removed. Runs on Google servers independent of local PC state.
+
+- **Slot 1 Video Published Live to YouTube ([@ryxmarcus](https://www.youtube.com/@ryxmarcus)):**
+  - **Video URL:** [`https://www.youtube.com/watch?v=PQw9vOA6pFI`](https://www.youtube.com/watch?v=PQw9vOA6pFI)
+  - **Title:** `How a Single Line of Code Nearly Destroyed the Internet ⚠️ #Shorts`
+  - **Format:** Vertical 9:16 (0:39), 1080x1920, Microsoft Neural narration, synced centered yellow captions.
+  - **Status:** **Public**, Published Nov 9, 2026.
+  - **Verification:** Verified live in YouTube Studio Shorts inventory and public channel.
+
+- **Colab Cloud Rendering & Drive Integration:**
+  - **Colab Notebook:** [`Faceless_YouTube_Automation_ryxmarcus.ipynb`](file:///C:/Users/Rahul%20pc/agentx/Faceless_YouTube_Automation_ryxmarcus.ipynb) (Open in Colab: `https://colab.research.google.com/drive/1J7cBOQtuFLRqe_knfOYte5upJsTjytKk`).
+  - **Bug Fix:** Fixed FFmpeg 6.1 `SIGSEGV: 11` memory corruption by replacing `gradients` with `color=c=0x0a0f1d:s=1080x1920:r=30,vignette=PI/3` and high-contrast ASS subtitles.
+  - **Rendered Videos in Colab:**
+    - Slot 1: `/content/Short_Slot1_Lunch.mp4` (4.07 MB)
+    - Slot 2: `/content/Short_Slot2_Evening.mp4` (3.38 MB, `The $500 Million Typo That Destroyed a Rocket 💥`).
+  - **Google Drive Sync Cell:** Configured Cell 12 to mount Google Drive and save rendered shorts directly into `/content/drive/MyDrive/YouTube_Shorts_Queue/`.
+
+- **YouTube Channel Optimization & Settings Configuration ([@ryxmarcus](https://www.youtube.com/@ryxmarcus)):**
+  - **Country of Residence:** Configured to `India`.
+  - **High-Retention Channel Keywords:** Added `ai`, `coding`, `programming`, `tech history`, `computer science`, `software engineering`, `engineering`, `tech facts`, `shorts`, `ryxmarcus`.
+  - **Audience / COPPA Setting:** Set default to `NOT_MADE_FOR_KIDS` ("No, set this channel as not made for kids").
+  - **Upload Defaults Category:** Changed from `Comedy` to `Science & Technology`.
+  - **Channel Description Published:** Updated live on YouTube to: *"Daily viral stories on AI breakthroughs, computer science history, and engineering wonders. Subscribe to @ryxmarcus for daily insights!"*
 
 ## Latest completed work — 2026-10-30
 
