@@ -48,6 +48,26 @@ class CredentialsManager:
 
         return None
 
+    def get_elevenlabs_api_key(self) -> Optional[str]:
+        """Load ElevenLabs API key from environment, secrets, or .env."""
+        if os.environ.get("ELEVENLABS_API_KEY"):
+            return os.environ["ELEVENLABS_API_KEY"].strip()
+
+        for secrets_dir in [self.root / "secrets", self.agent_secrets_dir, self.infra_secrets_dir]:
+            p = secrets_dir / "elevenlabs_key.txt"
+            if p.is_file():
+                content = p.read_text(encoding="utf-8").strip()
+                if content:
+                    return content.splitlines()[0].strip()
+
+        env_file = self.root / ".env"
+        if env_file.is_file():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                if line.startswith("ELEVENLABS_API_KEY="):
+                    return line.split("=", 1)[1].strip()
+
+        return None
+
     def get_bitbucket_credentials(self) -> Dict[str, str]:
         """Load parsed Bitbucket credentials (org ID, API key, etc.)."""
         result = {}
