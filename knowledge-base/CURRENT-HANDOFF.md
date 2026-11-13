@@ -4,25 +4,22 @@
 Deploy and maintain an automated dual-platform publishing pipeline for GTA VI content across YouTube Shorts (**@ryxmarcus**) and Instagram Reels (**@grand_theft.auto_vi**), with high-converting audio narration and autonomous cloud staging.
 
 ## 2. Confirmed Changes & Active State (Nov 13, 2026)
-- **Permanent Production Voiceover Finalized:**
-  - **Chosen Voice:** `TEST_3_Ryan_UK_CinematicDocumentary` (`en-GB-RyanNeural`)
-  - **Pacing & Pitch Modulation:** `rate="+5%"`, `pitch="-3Hz"`.
-  - **Style Profile:** Prestigious, authoritative BBC/Rockstar Games documentary trailer tone.
-  - **Rendered Videos:**
-    - [`C:\Users\Rahul pc\Downloads\GTA6_Ryan_RockstarTrailer_Reel.mp4`](file:///C:/Users/Rahul%20pc/Downloads/GTA6_Ryan_RockstarTrailer_Reel.mp4) (0:35 duration, 1080x1920)
-    - [`C:\Users\Rahul pc\Downloads\GTA6_Brian_FastHype_Reel.mp4`](file:///C:/Users/Rahul%20pc/Downloads/GTA6_Brian_FastHype_Reel.mp4) (0:34 duration, 1080x1920)
-  - **Colab Studio V3 (`Google_Veo_YouTube_Shorts_Studio_V3.ipynb`):**
-    - Configured default voice to `en-GB-RyanNeural` (+5% speed, -3Hz pitch).
-    - Set default dashboard dropdown to `en-GB-RyanNeural`.
-    - Live-synced to Google Colab and saved to Google Drive.
-  - **Local Automation Engine:**
-    - `youtube_automation/config.py` and `youtube_automation/tts_engine.py` updated to `en-GB-RyanNeural`.
-- **Google Apps Script Cloud Publisher (Version 4.0):**
-  - Project `15ceSNNCmZeXyn9tk4QsSbCVMHFjFvHGzBkTRkOJ6nOunjvz1hqWIM15E` active with triggers at 11:00 AM, 1:00 PM, 7:30 PM IST.
-- **Instagram Reels Activation:**
-  - High-converting SEO bio live on `@grand_theft.auto_vi`. Awaiting Facebook Page link + `IG_USER_ID` and `IG_ACCESS_TOKEN` for Meta Graph API publishing.
+- **Google Vids Voiceover Integration & Studio V3.1 Pipeline Upgraded:**
+  - **Pipeline Notebook:** [`C:\Users\Rahul pc\Downloads\Google_Veo_YouTube_Shorts_Studio_V3_1_GoogleVids.ipynb`](file:///C:/Users/Rahul%20pc/Downloads/Google_Veo_YouTube_Shorts_Studio_V3_1_GoogleVids.ipynb) (and synced to `Google_Veo_YouTube_Shorts_Studio_V3.ipynb`).
+  - **Google Vids Built-in Preset:** `Google Vids: Ryan (British Documentary)` (`en-GB-RyanNeural`, `rate="+5%"`, `pitch="-3Hz"`).
+  - **Custom Google Vids Audio Import:** Automatically checks for `google_vids_voiceover.mp3` in `STUDIO_DIRS["voiceovers"]` and uses local Whisper (`base.en`) to extract word-level subtitle alignment timestamps.
+  - **Audio Mastering Chain (Cell 10):** Mastered for phone speakers with 48 kHz stereo AAC (192 kbps), 90 Hz HPF, -3.5 dB @ 240 Hz (de-mud), +2.5 dB @ 3.2 kHz (vocal presence), 2.2:1 gentle compression, and -16 LUFS target loudness (-1.5 dBTP limiter).
+  - **Publishing Staging Fix (Cell 18):** Decoupled hard Google Cloud Storage dependency. The approval gate now ALWAYS copies `.mp4`, `.json`, and `_thumb.jpg` directly into Google Drive's `Publishing_Queue` folder for our Google Apps Script Version 4.0 scheduler (runs at 11:00 AM, 1:00 PM, 7:30 PM IST), with GCS upload acting as an optional fallback.
+  - **Dashboard Upgraded (Cell 20):** Dropdown includes Google Vids presets and custom audio import mode.
+- **Local Engine & Rendered Assets:**
+  - `youtube_automation/config.py` and `youtube_automation/video_engine.py` updated to 48 kHz stereo mastering.
+  - Rendered files in Downloads:
+    - [`C:\Users\Rahul pc\Downloads\GTA6_Ryan_RockstarTrailer_Reel.mp4`](file:///C:/Users/Rahul%20pc/Downloads/GTA6_Ryan_RockstarTrailer_Reel.mp4) (0:35, 10.87 MB)
+    - [`C:\Users\Rahul pc\Downloads\GTA6_Brian_FastHype_Reel.mp4`](file:///C:/Users/Rahul%20pc/Downloads/GTA6_Brian_FastHype_Reel.mp4) (0:34, 10.73 MB)
 
 ## 3. Next Steps
-1. User watches [`C:\Users\Rahul pc\Downloads\GTA6_Ryan_RockstarTrailer_Reel.mp4`](file:///C:/Users/Rahul%20pc/Downloads/GTA6_Ryan_RockstarTrailer_Reel.mp4).
-2. All future videos generated in Colab and local engine will use `en-GB-RyanNeural` by default.
-3. Link Facebook Page to `@grand_theft.auto_vi` to enable autonomous Instagram Reels uploads.
+1. In Colab, open or upload `Google_Veo_YouTube_Shorts_Studio_V3_1_GoogleVids.ipynb` to [`https://colab.research.google.com/drive/1LbPgg-yZM9C3rTLQCilvZVYGjcol_YMz`](https://colab.research.google.com/drive/1LbPgg-yZM9C3rTLQCilvZVYGjcol_YMz).
+2. Choose between:
+   - **Mode A (Built-in Google Vids Voice):** Keep dropdown on `Google Vids: Ryan (British Documentary)` to generate with 48 kHz studio mastering.
+   - **Mode B (External Google Vids File):** Drop your Google Vids audio track as `google_vids_voiceover.mp3` into `YouTube_Shorts_Studio/Voiceovers/` and select `Import Custom Google Vids Audio File`.
+3. Click "Approve Video" — it stages directly into Google Drive `Publishing_Queue` where Google Apps Script automatically publishes to YouTube Shorts and Instagram Reels.
