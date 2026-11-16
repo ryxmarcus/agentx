@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Credentials and Secrets Manager for iTOPAZ Agent.
 
 Manages:
