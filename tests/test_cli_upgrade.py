@@ -1,8 +1,12 @@
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import agentx
 from core.node_manager import Node, NodeManager
 from agentx import node_tag
 
@@ -26,6 +30,19 @@ class UpgradeChecks(unittest.TestCase):
         self.assertIn('"version": "1.4.0"', result.stdout)
         self.assertNotIn("??", result.stdout)
         self.assertIn("Goodbye!", result.stdout)
+
+    def test_history_does_not_write_when_locked(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(agentx, "REPO_ROOT", Path(tmp)), \
+             patch.object(agentx, "readline", MagicMock()), \
+             patch.object(agentx, "is_locked", return_value=True):
+            agentx.setup_history()
+            self.assertFalse((Path(tmp) / ".tmp").exists())
+
+    def test_shell_launcher_targets_canonical_cli(self):
+        launcher = (ROOT / "agent" / "bin" / "itopaz-agent").read_text(encoding="utf-8")
+        self.assertIn('exec python3 "${AGENT_ROOT}/agentx.py" "$@"', launcher)
+        self.assertFalse((ROOT / "agent" / "agentx.py").exists())
 
     def test_disabled_node_cannot_run_directly(self):
         node = Node("standby", {"enabled": False, "optional": True})

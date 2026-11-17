@@ -1,12 +1,42 @@
-# Agent CLI optimisation (2026-11-17)
+# Career Ops Explorer source-access incident
 
-- **Startup:** 4.4s of ~4.5s per command was `core/project_manager.py` running 36 `git` subprocesses at import. Git state is now lazy, cached for `ITOPAZ_GIT_CACHE_TTL` seconds (default 30), uses 2 git calls per repo instead of 3, and `list_projects` refreshes in parallel.
-- **Measured (local, same machine):** `--doctor` 4.77s → 0.22s; `--search` 4.55s → 0.26s; `--list-projects` 1.15s.
-- **Tests:** were 18 run, 2 failures, 1 error (tests still called the old `itopaz_agent.py` after the `agentx.py` rename). Now 23 run, all pass (added `tests/test_project_manager.py`).
-- **Also changed:** `nodes.json` local `agent_entry` now points to `agentx.py`; `agentx.py` usage docstring updated.
-- **Archived (not deleted):** dead legacy tree `agent/core/` (6 files, untracked, only imported itself) moved to `scratch/legacy-agent-core-20261117/`. `agent/itopaz_agent.py` shim still works.
-- **Not committed or pushed.** Changes are in the working tree of `ryxmarcus/agentx`.
-- **Open:** `scripts/` holds hundreds of unrelated browser-automation scripts and screenshots, and the repo root holds many PDFs/PNGs. Awaiting operator decision before moving them.
+- **Objective:** explain why the Explorer page at `127.0.0.1:3000/explore` showed “The scan ran, but couldn’t reach any sources.”
+- **Confirmed local evidence:** all four required public ATS directory requests returned `HTTP/1.1 403 Forbidden` with `Server: Zscaler/6.2`: `greenhouse_companies.json`, `lever_companies.json`, `ashby_companies.json`, and `workday_companies.json` under `https://raw.githubusercontent.com/Feashliaa/job-board-aggregator/main/data/`.
+- **Not the cause:** DNS resolves `raw.githubusercontent.com` to GitHub addresses; `scan-ats-full.mjs` and `portals.yml` exist; no source cache exists at `job/career-ops/data/cache/ats-companies`, so there is no stale fallback dataset.
+- **Impact:** each selected source reports an empty dataset; Explorer receives `companiesScanned: 0` and correctly renders the degraded card. No ATS board scan is attempted, so changing scan concurrency/timeouts will not help.
+- **Required next step:** request Zscaler/network allow-list access for `raw.githubusercontent.com` (at minimum the dataset path above) or provide an approved internal mirror. Once access is approved, retry Discover; the scanner will seed its 24-hour local source cache automatically.
+- **No code change applied:** this is an external egress policy block, not a scanner defect. Do not apply a proxy bypass, disable TLS verification, or fabricate cache data.
+- **Evidence:** `.tmp/career-ops-source-check.txt`, `.tmp/career-ops-403-detail.txt`, `.tmp/career-ops-prereqs.txt` (local temporary diagnostics; no credentials recorded).
+
+---
+
+# Agent CLI audit and optimisation (2026-11-17)
+
+## Objective
+Fresh review and performance optimisation of the canonical iTOPAZ CLI in this workspace. Canonical entrypoint: `agentx.py`; `agent/itopaz_agent.py` is a compatibility shim.
+
+## Confirmed changes
+- **Startup performance:** `core/project_manager.py` previously ran 36 Git subprocesses while importing. Git state is now lazy, cached for `ITOPAZ_GIT_CACHE_TTL` seconds (default 30), uses two calls per repository, and project-list refreshes run in parallel.
+- **Measured locally:** `--doctor` improved from 4.77s to 0.45s; `--search "EBX auto heal"` from 4.55s to 0.44s; `--list-projects` completed in 1.56s.
+- **Entrypoints:** repaired `agent/bin/itopaz-agent`, which incorrectly targeted non-existent `agent/agentx.py`; it now executes `${AGENT_ROOT}/agentx.py`. The compatibility shim remains functional.
+- **Safety:** command history is now disabled while `.agent-operation-lock.json` is locked, matching the default no-write policy.
+- **Configuration/docs:** the local node registry points to `agentx.py`; root and nested READMEs now use the canonical CLI name and correctly document root-level `config.json`.
+- **Legacy code:** archived (not deleted) the untracked, unused `agent/core/` snapshot at `scratch/legacy-agent-core-20261117/`.
+
+## Validation
+- Recursive Python compile: passed (`rc=0`).
+- Unit tests: 25 passed in 13.327s.
+- `python agentx.py --doctor`: passed; local node detected, operation lock enabled, all three knowledge sources present, workers 1 and 2 enabled with deployed agents and configured keys present.
+- `python agent/itopaz_agent.py --nodes`: passed.
+- Static shell-launcher contract and stale reference scan: passed; no references remain to `agent/agentx.py`, `python itopaz_agent.py`, or runtime `agent/config.json`.
+
+## Current source-control state
+Changes remain uncommitted in the local `main` working tree for `https://github.com/ryxmarcus/agentx.git`. No remote/server configuration was changed by this audit.
+
+## Remaining follow-ups
+- `scripts/` and the repository root contain substantial unrelated browser-automation artifacts, screenshots, PDFs, and job-application files. They were deliberately not moved or deleted; organise/archive them only with explicit approval.
+- The agent’s `--serve` mode binds to all interfaces. It has route-level bearer authentication except `/health`, but deployment exposure and token values were not reviewed in this audit.
+- The operation lock is an application guard, not an operating-system or SSH authorization boundary.
 
 ---
 

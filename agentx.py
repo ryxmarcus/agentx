@@ -94,8 +94,10 @@ def print_doctor():
 
 
 def setup_history():
-    """Enable readline command history."""
-    if readline is None:
+    """Enable readline command history only when local writes are allowed."""
+    # The operation lock promises no writes by default.  History is a local
+    # convenience, but creating it while locked would violate that contract.
+    if readline is None or is_locked():
         return
     hist_file = REPO_ROOT / ".tmp" / ".itopaz_agent_history"
     try:
