@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 class NodeChecks(unittest.TestCase):
     def test_both_entrypoints(self):
-        for entry in ("itopaz_agent.py", "agent/itopaz_agent.py"):
+        for entry in ("agentx.py", "agent/itopaz_agent.py"):
             result = subprocess.run([sys.executable, str(ROOT / entry), "--nodes"], cwd=ROOT, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("running on: local", result.stdout)
@@ -18,7 +18,7 @@ class NodeChecks(unittest.TestCase):
     def test_search_with_windows_output_encoding(self):
         import os
         env = dict(os.environ, PYTHONIOENCODING="cp1252")
-        result = subprocess.run([sys.executable, str(ROOT / "itopaz_agent.py"), "--search", "DEV Grafana"], cwd=ROOT, env=env, capture_output=True)
+        result = subprocess.run([sys.executable, str(ROOT / "agentx.py"), "--search", "DEV Grafana"], cwd=ROOT, env=env, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(b"matches", result.stdout)
 

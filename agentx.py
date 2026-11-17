@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """AllCargo iTOPAZ Autonomous Multi-Project Agent CLI.
 
-Can be run locally from terminal:
-- Interactive REPL mode:  python3 agent/itopaz_agent.py
-- Single-command mode:    python3 agent/itopaz_agent.py "Fix tariff-selling-bff build issue"
-- Fast knowledge search:  python3 agent/itopaz_agent.py --search "2026-10-07 prefiler secret"
-- Project switch:         python3 agent/itopaz_agent.py -p itariff-k8s
+Can be run locally from terminal (agent/itopaz_agent.py is a compatible alias):
+- Interactive REPL mode:  python3 agentx.py
+- Single-command mode:    python3 agentx.py "Fix tariff-selling-bff build issue"
+- Fast knowledge search:  python3 agentx.py --search "2026-10-07 prefiler secret"
+- Project switch:         python3 agentx.py -p itariff-k8s
 """
 
 import argparse

@@ -1,34 +1,53 @@
 ﻿#!/usr/bin/env python3
 """Project & Workspace Context Manager for iTOPAZ Agent.
 
-Discovers and manages context for all AllCargo iTOPAZ repositories and services:
-- clones/itariff-k8s-repo
-- clones/prefiler-k8s-repo
-- clones/itopaz-k8-repo
-- clones/imdg-prefiler
-- clones/aci-prefiler-service
-- clones/master-prefiler-service
-- clones/microfrontend-main
-- clones/microfrontend-shared
-- clones/tariff-microfrontend-main-ui
-- clones/tariff-microfrontend-share-ui
-- clones/tariff-company-service
-- clones/mdm-bw-repo
-- clones/bw_other_outbound_itopaz
-- clones/ecu-zpa-user
-- clones/aws-dashboard
-- clones/itopaz-agent
-- scripts/ebx-auto-healing
-- infrastructure
+Registers the built-in iTOPAZ projects below and discovers any other
+directories under ``clones/``.
+
+Git state (branch, dirty flag, latest commit) is collected lazily and cached
+for ``ITOPAZ_GIT_CACHE_TTL`` seconds (default 30). Importing this module runs
+no git commands; state is fetched the first time a project's details are
+requested, and ``list_projects`` refreshes projects in parallel.
 """
 
 import os
 import subprocess
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 REPO_ROOT = Path(os.environ.get("ITOPAZ_WORKSPACE_ROOT", Path(__file__).resolve().parent.parent)).resolve()
+
+GIT_CACHE_TTL = float(os.environ.get("ITOPAZ_GIT_CACHE_TTL", "30"))
+GIT_TIMEOUT = 10
+# Read-only queries: skip optional index refresh locks and never prompt for credentials.
+_GIT_ENV = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0"}
+_KEY_FILE_CHECKS = (
+    "Jenkinsfile",
+    "Dockerfile",
+    "package.json",
+    "pom.xml",
+    "requirements.txt",
+    "appsettings.json",
+    "docker-compose.yml",
+)
+
+
+def _git(path: Path, *args: str) -> Optional[str]:
+    """Run a read-only git command; return stdout, or None on any failure."""
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(path), *args],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT,
+            env=_GIT_ENV,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return res.stdout if res.returncode == 0 else None
 
 
 @dataclass
@@ -44,52 +63,38 @@ class ProjectInfo:
     git_dirty: bool = False
     latest_commit: Optional[str] = None
     key_files: List[str] = field(default_factory=list)
+    _refreshed_at: float = field(default=0.0, repr=False, compare=False)
 
-    def refresh_git_info(self):
-        """Query live git branch, status, and commit."""
+    def refresh_git_info(self, force: bool = False):
+        """Refresh git branch, dirty flag, latest commit, and key files.
+
+        Results are reused for GIT_CACHE_TTL seconds unless ``force`` is set.
+        Uses two git calls: ``status --porcelain=v2 --branch`` (branch and
+        dirty state) and ``log -1`` (commit summary).
+        """
+        now = time.monotonic()
+        if not force and self._refreshed_at and now - self._refreshed_at < GIT_CACHE_TTL:
+            return
+        self._refreshed_at = now
+        self.key_files = [f for f in _KEY_FILE_CHECKS if (self.path / f).exists()]
         if not (self.path / ".git").exists():
             return
-        try:
-            branch = subprocess.check_output(
-                ["git", "-C", str(self.path), "rev-parse", "--abbrev-ref", "HEAD"],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            self.git_branch = branch
-        except Exception:
-            pass
 
-        try:
-            status = subprocess.check_output(
-                ["git", "-C", str(self.path), "status", "--porcelain"],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            self.git_dirty = bool(status)
-        except Exception:
-            pass
+        status = _git(self.path, "status", "--porcelain=v2", "--branch")
+        if status is not None:
+            dirty = False
+            for line in status.splitlines():
+                if line.startswith("# branch.head "):
+                    head = line[len("# branch.head "):].strip()
+                    # Match `git rev-parse --abbrev-ref HEAD`, which prints HEAD when detached.
+                    self.git_branch = "HEAD" if head == "(detached)" else head
+                elif line and not line.startswith("#"):
+                    dirty = True
+            self.git_dirty = dirty
 
-        try:
-            commit = subprocess.check_output(
-                ["git", "-C", str(self.path), "log", "-1", "--oneline"],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            self.latest_commit = commit
-        except Exception:
-            pass
-
-        # Detect key files
-        checks = [
-            "Jenkinsfile",
-            "Dockerfile",
-            "package.json",
-            "pom.xml",
-            "requirements.txt",
-            "appsettings.json",
-            "docker-compose.yml",
-        ]
-        self.key_files = [f for f in checks if (self.path / f).exists()]
+        commit = _git(self.path, "log", "-1", "--oneline")
+        if commit is not None:
+            self.latest_commit = commit.strip()
 
 
 class ProjectManager:
@@ -199,13 +204,13 @@ class ProjectManager:
                 description=pdef["description"],
                 kb_tags=pdef["kb_tags"],
             )
-            p.refresh_git_info()
             self._projects[p.id] = p
 
-        # Dynamically discover any other git clones
+        # Dynamically discover any other clones (git state is fetched lazily)
         if self.clones_dir.is_dir():
+            known_dirs = {p.path.name for p in self._projects.values()}
             for item in self.clones_dir.iterdir():
-                if item.is_dir() and item.name not in [p.path.name for p in self._projects.values()]:
+                if item.is_dir() and item.name not in known_dirs:
                     pid = item.name.lower().replace("_", "-")
                     p = ProjectInfo(
                         id=pid,
@@ -216,14 +221,16 @@ class ProjectManager:
                         description=f"Cloned repository {item.name}",
                         kb_tags=[item.name],
                     )
-                    p.refresh_git_info()
                     self._projects[p.id] = p
+                    known_dirs.add(item.name)
 
     def list_projects(self) -> List[Dict[str, Any]]:
         """Return structured list of all projects and their git state."""
+        items = sorted(self._projects.items())
+        with ThreadPoolExecutor(max_workers=min(8, len(items) or 1)) as pool:
+            list(pool.map(lambda kv: kv[1].refresh_git_info(), items))
         result = []
-        for pid, p in sorted(self._projects.items()):
-            p.refresh_git_info()
+        for pid, p in items:
             result.append({
                 "id": p.id,
                 "name": p.name,

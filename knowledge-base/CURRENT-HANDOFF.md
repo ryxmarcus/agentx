@@ -1,3 +1,15 @@
+# Agent CLI optimisation (2026-11-17)
+
+- **Startup:** 4.4s of ~4.5s per command was `core/project_manager.py` running 36 `git` subprocesses at import. Git state is now lazy, cached for `ITOPAZ_GIT_CACHE_TTL` seconds (default 30), uses 2 git calls per repo instead of 3, and `list_projects` refreshes in parallel.
+- **Measured (local, same machine):** `--doctor` 4.77s → 0.22s; `--search` 4.55s → 0.26s; `--list-projects` 1.15s.
+- **Tests:** were 18 run, 2 failures, 1 error (tests still called the old `itopaz_agent.py` after the `agentx.py` rename). Now 23 run, all pass (added `tests/test_project_manager.py`).
+- **Also changed:** `nodes.json` local `agent_entry` now points to `agentx.py`; `agentx.py` usage docstring updated.
+- **Archived (not deleted):** dead legacy tree `agent/core/` (6 files, untracked, only imported itself) moved to `scratch/legacy-agent-core-20261117/`. `agent/itopaz_agent.py` shim still works.
+- **Not committed or pushed.** Changes are in the working tree of `ryxmarcus/agentx`.
+- **Open:** `scripts/` holds hundreds of unrelated browser-automation scripts and screenshots, and the repo root holds many PDFs/PNGs. Awaiting operator decision before moving them.
+
+---
+
 # Current Handoff: GTA VI Dual-Platform Auto Publisher (@ryxmarcus & @grand_theft.auto_vi)
 
 ## 1. Current Objective

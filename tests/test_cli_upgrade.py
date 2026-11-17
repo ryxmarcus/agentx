@@ -4,13 +4,13 @@ import sys
 import unittest
 from pathlib import Path
 from core.node_manager import Node, NodeManager
-from itopaz_agent import node_tag
+from agentx import node_tag
 
 ROOT = Path(__file__).resolve().parent.parent
 
 class UpgradeChecks(unittest.TestCase):
     def test_doctor_both_entrypoints(self):
-        for entry in ("itopaz_agent.py", "agent/itopaz_agent.py"):
+        for entry in ("agentx.py", "agent/itopaz_agent.py"):
             result = subprocess.run([sys.executable, str(ROOT / entry), "--doctor"], capture_output=True, encoding="utf-8", cwd=ROOT, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
             report = json.loads(result.stdout)
@@ -20,7 +20,7 @@ class UpgradeChecks(unittest.TestCase):
             self.assertNotIn("ssh_key", result.stdout)
 
     def test_interactive_startup_and_doctor(self):
-        result = subprocess.run([sys.executable, str(ROOT / "itopaz_agent.py"), "--provider", "offline"], input="/doctor\n/exit\n", capture_output=True, encoding="utf-8", cwd=ROOT, timeout=15)
+        result = subprocess.run([sys.executable, str(ROOT / "agentx.py"), "--provider", "offline"], input="/doctor\n/exit\n", capture_output=True, encoding="utf-8", cwd=ROOT, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Operation lock:", result.stdout)
         self.assertIn('"version": "1.4.0"', result.stdout)
