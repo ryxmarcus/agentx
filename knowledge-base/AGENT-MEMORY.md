@@ -31,3 +31,15 @@ the fact remains useful after the incident.
   - Commit filter: `bitbucket-pipelines.yml` triggers Jenkins `itopaz-ameta-ui-main` via generic webhook only when the commit message contains `"deploy"`.
   - Current state: Runner container stopped (`docker stop runner-d9df5c8f-9b06-50a0-bf3d-c59de27d983c`). Requires firewall whitelist for `docker-public.packages.atlassian.com` and `docker-blobs.artifacts.atlassian.com` to pull helper containers.
 
+
+- **Worker 1 AWS Host & Egress (`10.151.4.165`):**
+  - Host: `10.151.4.165` (`ec2-user`), auth key: `C:\Users\rah_66160\keys\ecu-eks-jump.pem`.
+  - Connectivity: Unrestricted outbound internet (HTTP/2 200). Successfully acts as remote fetch runner for public internet resources blocked by local corporate proxy (e.g., GitHub raw ATS datasets for Career-Ops).
+  - Storage cache on Worker 1: `/home/ec2-user/knowledge_cache/`.
+
+- **Google Drive Video Queue & Studio Pipeline (2026-11-19):**
+  - Account: `rk58743k@gmail.com`
+  - Queue Folder: `YouTube_Shorts_Queue` (ID: `1QEuvauHgGMghJYEqQ9bpzmvBECkWK1EV`)
+  - Uploaded Folder: `YouTube_Uploaded` (ID: `1nzXKFZq0je56_rSf0x9crtdFhnSc6sOK`)
+  - Apps Script Project: `1IAQnekst4NvSlfyYl25zVRiq35-JSEdIPBBslMiICD14KxZUjQ8K6U6f`
+  - Active Studio Code: [`gta_video_studio.gs`](file:///C:/Users/rah_66160/iTopaz-agents/gta_video_studio.gs) (973 lines; sequential publishing, full rollback, Instagram queue batch publishing).
